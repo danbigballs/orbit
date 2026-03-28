@@ -24,6 +24,8 @@
     let headingCone = null;
     let currentHeading = 0;
     let listVisible = false;
+    let flightMode = false;
+    let mapInitialised = false;
     let locked = false;
     let muted = false;
 
@@ -46,6 +48,7 @@
     const mapContainer = document.getElementById('map-container');
     const debugEl = document.getElementById('debug');
     const muteBtn = document.getElementById('mute-btn');
+    const flightBtn = document.getElementById('flight-btn');
     const listBtn = document.getElementById('list-btn');
     const listContainer = document.getElementById('list-container');
     const listClose = document.getElementById('list-close');
@@ -87,6 +90,7 @@
         }
         navigator.geolocation.watchPosition(
             (pos) => {
+                if (flightMode) return;
                 userLat = pos.coords.latitude;
                 userLon = pos.coords.longitude;
                 gpsStatus.textContent = `GPS: ${userLat.toFixed(3)}, ${userLon.toFixed(3)}`;
@@ -202,6 +206,15 @@
         if (audioEl) audioEl.muted = muted;
         muteBtn.textContent = muted ? '🔇' : '🔊';
         muteBtn.classList.toggle('muted', muted);
+    });
+
+    // --- Flight Mode ---
+    flightBtn.addEventListener('click', () => {
+        flightMode = !flightMode;
+        flightBtn.classList.toggle('active', flightMode);
+        gpsStatus.textContent = flightMode
+            ? `FLY: ${userLat.toFixed(3)}, ${userLon.toFixed(3)}`
+            : `GPS: ${userLat.toFixed(3)}, ${userLon.toFixed(3)}`;
     });
 
     // --- Lock ---
@@ -355,6 +368,14 @@
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; OSM'
                 }).addTo(map);
+                map.on('click', (e) => {
+                    if (!flightMode) return;
+                    userLat = e.latlng.lat;
+                    userLon = e.latlng.lng;
+                    gpsStatus.textContent = `FLY: ${userLat.toFixed(3)}, ${userLon.toFixed(3)}`;
+                    skipSet.clear();
+                    loadClosest6();
+                });
             }
             updateMap();
             setTimeout(() => map.invalidateSize(), 100);
@@ -379,7 +400,10 @@
     function updateMap() {
         if (!map || userLat === null) return;
 
-        map.setView([userLat, userLon], 10);
+        if (!mapInitialised) {
+            map.setView([userLat, userLon], 10);
+            mapInitialised = true;
+        }
 
         // All stations (once)
         if (allStationMarkers.length === 0) initAllStationMarkers();
@@ -441,8 +465,8 @@
         // Heading cone
         updateHeadingCone();
 
-        // Zoom to fit radius
-        if (radiusCircle) {
+        // Only auto-zoom on flight mode relocation
+        if (flightMode && radiusCircle) {
             map.fitBounds(radiusCircle.getBounds().pad(0.1));
         }
     }
