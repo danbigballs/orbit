@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT — Stacking Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #eee; }
+  #map { width: 100%; height: 65vh; }
+  .stats { padding: 12px 16px; background: #111; border-bottom: 1px solid #333; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 28px; font-weight: 700; }
+  .stat .label { font-size: 11px; text-transform: uppercase; color: #888; }
+  .stat.s-total .num { color: #60a5fa; }
+  .stat.s-high .num { color: #4ade80; }
+  .stat.s-medium .num { color: #fbbf24; }
+  .stat.s-low .num { color: #fb923c; }
+  .stat.s-none .num { color: #9ca3af; }
+  .stat.s-clusters .num { color: #f87171; }
+  .progress-bar { width: 100%; height: 6px; background: #222; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #4ade80, #22d3ee); transition: width 0.5s; }
+  .log { padding: 12px 16px; font-family: monospace; font-size: 12px; max-height: 25vh; overflow-y: auto; background: #0a0a0a; }
+  .log-line { padding: 2px 0; color: #888; }
+  .log-line.improved { color: #4ade80; }
+  .log-line.phase { color: #60a5fa; font-weight: bold; }
+  .auto-refresh { position: absolute; top: 8px; right: 8px; z-index: 1000; background: #222; color: #888; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="stats" id="stats">
+  <div class="stat s-total"><div class="num" id="total">—</div><div class="label">Total</div></div>
+  <div class="stat s-high"><div class="num" id="high">—</div><div class="label">High</div></div>
+  <div class="stat s-medium"><div class="num" id="medium">—</div><div class="label">Medium</div></div>
+  <div class="stat s-low"><div class="num" id="low">—</div><div class="label">Low</div></div>
+  <div class="stat s-none"><div class="num" id="none">—</div><div class="label">None</div></div>
+  <div class="stat s-clusters"><div class="num" id="clusters">—</div><div class="label">Clusters</div></div>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+<div style="position:relative">
+  <div id="map"></div>
+  <div class="auto-refresh" id="refresh-label">Auto-refresh: 30s</div>
+</div>
+<div class="log" id="log"></div>
+
+<script>
+const map = L.map('map').setView([54.5, -2], 6);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OSM &copy; CARTO',
+  maxZoom: 18,
+}).addTo(map);
+
+let markers = L.layerGroup().addTo(map);
+
+function makeIcon(color, size, opacity) {
+  opacity = opacity || 0.85;
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:1px solid rgba(255,255,255,0.3);opacity:${opacity}"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+  });
+}
+
+async function refresh() {
+  try {
+    const resp = await fetch('/stacking-data.json?' + Date.now());
+    const data = await resp.json();
+
+    const cc = data.confidence_counts || {};
+    document.getElementById('total').textContent = data.total;
+    document.getElementById('high').textContent = cc.high || 0;
+    document.getElementById('medium').textContent = cc.medium || 0;
+    document.getElementById('low').textContent = cc.low || 0;
+    document.getElementById('none').textContent = cc.none || 0;
+    document.getElementById('clusters').textContent = data.stacked_locations || 0;
+
+    // Progress = % of stations at high+medium confidence
+    const goodCount = (cc.high || 0) + (cc.medium || 0);
+    const pct = data.total > 0 ? Math.round((goodCount / data.total) * 100) : 0;
+    document.getElementById('progress').style.width = pct + '%';
+
+    markers.clearLayers();
+
+    // Draw confidence layers (low/none first so high/medium draw on top)
+    const bc = data.by_confidence || {};
+
+    if (bc.none) {
+      bc.none.forEach(s => {
+        const marker = L.marker([s.lat, s.lon], { icon: makeIcon('#9ca3af', 4, 0.5) });
+        marker.bindPopup(`<b>${s.name}</b><br>Confidence: none`);
+        markers.addLayer(marker);
+      });
+    }
+
+    if (bc.low) {
+      bc.low.forEach(s => {
+        const marker = L.marker([s.lat, s.lon], { icon: makeIcon('#fb923c', 4, 0.6) });
+        marker.bindPopup(`<b>${s.name}</b><br>Confidence: low`);
+        markers.addLayer(marker);
+      });
+    }
+
+    if (bc.medium) {
+      bc.medium.forEach(s => {
+        const marker = L.marker([s.lat, s.lon], { icon: makeIcon('#fbbf24', 5) });
+        marker.bindPopup(`<b>${s.name}</b><br>Confidence: medium`);
+        markers.addLayer(marker);
+      });
+    }
+
+    if (bc.high) {
+      bc.high.forEach(s => {
+        const marker = L.marker([s.lat, s.lon], { icon: makeIcon('#4ade80', 5) });
+        marker.bindPopup(`<b>${s.name}</b><br>Confidence: high`);
+        markers.addLayer(marker);
+      });
+    }
+
+    // Draw stacked clusters (red, sized by count) on top
+    if (data.clusters) {
+      data.clusters.forEach(c => {
+        const size = Math.min(8 + c.count * 1.5, 40);
+        const marker = L.marker([c.lat, c.lon], { icon: makeIcon('#f87171', size) });
+        const names = c.stations.slice(0, 5).join('<br>');
+        const more = c.count > 5 ? `<br><i>+${c.count - 5} more</i>` : '';
+        marker.bindPopup(`<b>${c.count} stacked stations</b><br>${names}${more}`);
+        markers.addLayer(marker);
+      });
+    }
+
+    // Update log
+    if (data.log_lines) {
+      const logEl = document.getElementById('log');
+      logEl.innerHTML = data.log_lines.map(l => {
+        let cls = 'log-line';
+        if (l.includes('HP:') || l.includes('CH:')) cls += ' improved';
+        if (l.includes('PHASE') || l.includes('===')) cls += ' phase';
+        return `<div class="${cls}">${l}</div>`;
+      }).join('');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+  } catch(e) {
+    console.error('Refresh failed:', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

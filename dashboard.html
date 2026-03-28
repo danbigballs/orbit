@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 12px; max-width: 800px; margin: 0 auto; }
+
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #666; margin-bottom: 16px; }
+
+  .nav { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .nav a { color: #60a5fa; text-decoration: none; font-size: 12px; padding: 4px 10px; background: #1a1a2e; border-radius: 4px; }
+  .nav a:hover { background: #2a2a4e; }
+
+  .card { background: #111; border: 1px solid #222; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 13px; text-transform: uppercase; color: #666; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .metric { text-align: center; padding: 8px; }
+  .metric .value { font-size: 32px; font-weight: 700; line-height: 1.1; }
+  .metric .label { font-size: 11px; color: #888; text-transform: uppercase; margin-top: 2px; }
+
+  .bar-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 13px; }
+  .bar-label { width: 140px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; height: 16px; background: #1a1a1a; border-radius: 3px; margin: 0 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+  .bar-count { width: 40px; text-align: right; color: #888; font-size: 12px; }
+
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { padding: 3px 8px; background: #1a1a2e; border-radius: 3px; font-size: 12px; color: #8b9cf7; }
+
+  .service-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #1a1a1a; }
+  .service-row:last-child { border: none; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .status-active { background: #4ade80; }
+  .status-inactive { background: #f87171; }
+
+  .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sys-item { padding: 8px; background: #0a0a0a; border-radius: 4px; }
+  .sys-item .label { font-size: 11px; color: #666; }
+  .sys-item .val { font-size: 18px; font-weight: 600; }
+
+  canvas { max-height: 200px; }
+
+  .confidence-bar { display: flex; height: 24px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+  .confidence-bar div { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+
+  .updated { font-size: 11px; color: #444; text-align: center; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>ORBIT</h1>
+<div class="subtitle">UK Radio Station Explorer — Pi 5 Dashboard</div>
+
+<div class="nav">
+  <a href="/stacking.html">Stacking Map</a>
+  <a href="/">ORBIT App</a>
+  <a href="/dashboard.html">Dashboard</a>
+</div>
+
+<!-- Station Overview -->
+<div class="card">
+  <div class="card-title">Stations</div>
+  <div class="grid">
+    <div class="metric"><div class="value" id="total" style="color:#60a5fa">—</div><div class="label">Total</div></div>
+    <div class="metric"><div class="value" id="alive" style="color:#4ade80">—</div><div class="label">Alive</div></div>
+    <div class="metric"><div class="value" id="dead" style="color:#f87171">—</div><div class="label">Dead</div></div>
+    <div class="metric"><div class="value" id="version" style="color:#fbbf24">—</div><div class="label">DB Version</div></div>
+  </div>
+</div>
+
+<!-- Confidence -->
+<div class="card">
+  <div class="card-title">Geocoding Confidence</div>
+  <div class="confidence-bar" id="conf-bar"></div>
+  <div class="grid">
+    <div class="metric"><div class="value" id="conf-high" style="color:#4ade80">—</div><div class="label">High</div></div>
+    <div class="metric"><div class="value" id="conf-medium" style="color:#fbbf24">—</div><div class="label">Medium</div></div>
+    <div class="metric"><div class="value" id="conf-low" style="color:#fb923c">—</div><div class="label">Low</div></div>
+    <div class="metric"><div class="value" id="conf-none" style="color:#9ca3af">—</div><div class="label">None</div></div>
+  </div>
+</div>
+
+<!-- Geocoding Pipeline -->
+<div class="card">
+  <div class="card-title">Geocoding Pipeline</div>
+  <div class="grid">
+    <div class="metric"><div class="value" id="geo-extracted" style="color:#22d3ee">—</div><div class="label">Name Extracted</div></div>
+    <div class="metric"><div class="value" id="geo-scraped" style="color:#a78bfa">—</div><div class="label">Scrape Improved</div></div>
+    <div class="metric"><div class="value" id="geo-jittered" style="color:#9ca3af">—</div><div class="label">Jittered</div></div>
+    <div class="metric"><div class="value" id="geo-stacked" style="color:#f87171">—</div><div class="label">Still Stacked</div></div>
+  </div>
+</div>
+
+<!-- Geo Sources Chart -->
+<div class="card">
+  <div class="card-title">Geo Sources</div>
+  <div id="sources-bars"></div>
+</div>
+
+<!-- Codecs -->
+<div class="card">
+  <div class="card-title">Codecs</div>
+  <canvas id="codec-chart"></canvas>
+</div>
+
+<!-- Tags -->
+<div class="card">
+  <div class="card-title">Top Tags</div>
+  <div class="tag-cloud" id="tags"></div>
+</div>
+
+<!-- Stream Health -->
+<div class="card">
+  <div class="card-title">Stream Health</div>
+  <div id="health-bars"></div>
+</div>
+
+<!-- System -->
+<div class="card">
+  <div class="card-title">Pi 5 System</div>
+  <div class="sys-grid">
+    <div class="sys-item"><div class="label">CPU Temp</div><div class="val" id="sys-temp">—</div></div>
+    <div class="sys-item"><div class="label">RAM</div><div class="val" id="sys-ram">—</div></div>
+    <div class="sys-item"><div class="label">Disk</div><div class="val" id="sys-disk">—</div></div>
+    <div class="sys-item"><div class="label">Uptime</div><div class="val" id="sys-uptime">—</div></div>
+  </div>
+  <div style="margin-top: 12px;">
+    <div class="card-title" style="margin-bottom: 8px;">Services</div>
+    <div id="services"></div>
+  </div>
+</div>
+
+<div class="updated" id="updated">—</div>
+
+<script>
+const COLORS = {
+  high: '#4ade80', medium: '#fbbf24', low: '#fb923c', none: '#9ca3af',
+  ok: '#4ade80', bad_stream: '#fb923c', connection_error: '#f87171',
+  connect_timeout: '#ef4444', read_timeout: '#dc2626',
+};
+
+const SOURCE_COLORS = {
+  region_jitter: '#9ca3af', homepage_deep_v2: '#a78bfa', name_extraction: '#22d3ee',
+  wikidata_fuzzy_v2: '#fb923c', original: '#4ade80', ofcom_fuzzy: '#fbbf24',
+  wikidata_exact_v2: '#34d399', wikidata_exact: '#2dd4bf', ofcom_exact: '#86efac',
+  homepage_postcode_v2: '#c084fc', bbc_known_location: '#60a5fa',
+  nominatim_name: '#67e8f9', nominatim_state: '#fdba74', homepage_maps_embed: '#e879f9',
+};
+
+let codecChart = null;
+
+async function refresh() {
+  try {
+    const resp = await fetch('/dashboard-data.json?' + Date.now());
+    const d = await resp.json();
+
+    // Stations
+    document.getElementById('total').textContent = d.stations.total;
+    document.getElementById('alive').textContent = d.stream_health.alive || '—';
+    document.getElementById('dead').textContent = d.stream_health.dead || '—';
+    document.getElementById('version').textContent = 'v' + d.stations.db_version;
+
+    // Confidence
+    const cc = d.stations.confidence;
+    const total = d.stations.total;
+    document.getElementById('conf-high').textContent = cc.high || 0;
+    document.getElementById('conf-medium').textContent = cc.medium || 0;
+    document.getElementById('conf-low').textContent = cc.low || 0;
+    document.getElementById('conf-none').textContent = cc.none || 0;
+
+    const bar = document.getElementById('conf-bar');
+    bar.innerHTML = ['high','medium','low','none'].map(level => {
+      const count = cc[level] || 0;
+      const pct = (count / total * 100).toFixed(1);
+      return `<div style="width:${pct}%;background:${COLORS[level]};color:#000">${pct > 5 ? Math.round(pct) + '%' : ''}</div>`;
+    }).join('');
+
+    // Geocoding pipeline
+    const geo = d.geocoding;
+    document.getElementById('geo-extracted').textContent = geo.name_extracted;
+    document.getElementById('geo-scraped').textContent = geo.scrape_improved;
+    document.getElementById('geo-jittered').textContent = geo.jittered_none + geo.jittered_low;
+    document.getElementById('geo-stacked').textContent = geo.still_stacked;
+
+    // Sources bars
+    const srcEl = document.getElementById('sources-bars');
+    const srcMax = Math.max(...Object.values(d.stations.sources));
+    srcEl.innerHTML = Object.entries(d.stations.sources).map(([name, count]) => {
+      const pct = (count / srcMax * 100).toFixed(0);
+      const color = SOURCE_COLORS[name] || '#555';
+      const label = name.replace(/_/g, ' ');
+      return `<div class="bar-row">
+        <div class="bar-label">${label}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="bar-count">${count}</div>
+      </div>`;
+    }).join('');
+
+    // Codecs donut
+    const codecData = d.stations.codecs;
+    const codecLabels = Object.keys(codecData);
+    const codecValues = Object.values(codecData);
+    const codecColors = ['#60a5fa', '#4ade80', '#fbbf24', '#f87171', '#a78bfa', '#22d3ee', '#9ca3af'];
+
+    if (codecChart) codecChart.destroy();
+    codecChart = new Chart(document.getElementById('codec-chart'), {
+      type: 'doughnut',
+      data: {
+        labels: codecLabels,
+        datasets: [{ data: codecValues, backgroundColor: codecColors.slice(0, codecLabels.length), borderWidth: 0 }]
+      },
+      options: {
+        plugins: { legend: { position: 'right', labels: { color: '#aaa', font: { size: 11 } } } },
+        cutout: '60%',
+      }
+    });
+
+    // Tags
+    const tagsEl = document.getElementById('tags');
+    tagsEl.innerHTML = d.stations.top_tags.map(([tag, count]) =>
+      `<span class="tag">${tag} <span style="color:#666">${count}</span></span>`
+    ).join('');
+
+    // Stream health
+    const healthEl = document.getElementById('health-bars');
+    if (d.stream_health.by_status) {
+      const hMax = Math.max(...Object.values(d.stream_health.by_status));
+      healthEl.innerHTML = Object.entries(d.stream_health.by_status).map(([status, count]) => {
+        const pct = (count / hMax * 100).toFixed(0);
+        const color = COLORS[status] || '#555';
+        return `<div class="bar-row">
+          <div class="bar-label">${status.replace(/_/g, ' ')}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${count}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // System
+    const sys = d.system;
+    document.getElementById('sys-temp').textContent = sys.cpu_temp ? sys.cpu_temp + '°C' : '—';
+    document.getElementById('sys-ram').textContent = `${sys.memory.used_mb}/${sys.memory.total_mb}MB`;
+    document.getElementById('sys-disk').textContent = sys.disk.pct || '—';
+    document.getElementById('sys-uptime').textContent = sys.uptime;
+
+    const svcEl = document.getElementById('services');
+    svcEl.innerHTML = sys.services.map(s => {
+      const active = s.status === 'active';
+      return `<div class="service-row">
+        <span><span class="status-dot ${active ? 'status-active' : 'status-inactive'}"></span>${s.name}</span>
+        <span style="color:${active ? '#4ade80' : '#f87171'}">${s.status}</span>
+      </div>`;
+    }).join('');
+
+    // Updated time
+    const updated = new Date(d.generated);
+    document.getElementById('updated').textContent = `Updated: ${updated.toLocaleTimeString()}`;
+
+  } catch(e) {
+    console.error('Refresh failed:', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

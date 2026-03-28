@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ORBIT</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #111;
+            color: #fff;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            gap: 24px;
+        }
+        #start-screen h1 { font-size: 48px; letter-spacing: 12px; }
+        #start-btn {
+            padding: 16px 48px;
+            font-size: 18px;
+            background: #fff;
+            color: #111;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #tuner-screen { display: none; height: 100dvh; position: relative; }
+
+        #dial-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #dial { overflow: visible; }
+
+        #dial .segment {
+            fill: #222;
+            stroke: #111;
+            stroke-width: 2;
+            transition: fill 0.2s;
+        }
+        #dial .segment.active { fill: #fff; }
+
+        #station-name {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 22px;
+            font-weight: 600;
+            text-align: center;
+            width: 160px;
+            line-height: 1.2;
+        }
+
+        #status-bar {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .bottom-btn {
+            position: absolute;
+            bottom: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #333;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        #shake-btn { left: 24px; font-size: 16px; }
+        #lock-btn { left: 50%; transform: translateX(-50%); font-size: 18px; }
+        #lock-btn.locked { background: #fff; color: #111; }
+        #map-btn { right: 24px; font-size: 20px; }
+
+        #map-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 500;
+        }
+        #map { width: 100%; height: 100%; }
+
+        #debug {
+            position: absolute;
+            bottom: 80px;
+            left: 16px;
+            font-size: 10px;
+            color: #444;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>ORBIT</h1>
+        <p style="color: #666;">rotate to tune</p>
+        <button id="start-btn">START</button>
+    </div>
+
+    <div id="tuner-screen">
+        <div id="status-bar">
+            <span id="gps-status">GPS: waiting...</span>
+            <span id="heading-display">---°</span>
+        </div>
+        <div id="dial-container">
+            <svg id="dial" width="280" height="280" viewBox="0 0 280 280"></svg>
+            <div id="station-name">Finding stations...</div>
+        </div>
+        <div id="debug"></div>
+        <button id="shake-btn" class="bottom-btn" title="Next 6 stations">⟳</button>
+        <button id="lock-btn" class="bottom-btn" title="Lock tuning">🔓</button>
+        <button id="map-btn" class="bottom-btn" title="Toggle map">🗺</button>
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="orbit.js"></script>
+</body>
+</html>
