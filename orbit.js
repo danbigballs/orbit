@@ -20,6 +20,7 @@
     let stationMarkers = [];
     let allStationMarkers = [];
     let locked = false;
+    let muted = false;
 
     // --- Constants ---
     const SEGMENT_COUNT = 6;
@@ -39,6 +40,7 @@
     const lockBtn = document.getElementById('lock-btn');
     const mapContainer = document.getElementById('map-container');
     const debugEl = document.getElementById('debug');
+    const muteBtn = document.getElementById('mute-btn');
 
     // --- Init ---
     startBtn.addEventListener('click', start);
@@ -46,10 +48,12 @@
     function start() {
         startScreen.style.display = 'none';
         tunerScreen.style.display = 'block';
-        // Unlock audio on user gesture so autoplay works later
+        // Create audio element and unlock on user gesture (iOS requires this)
         audioEl = new Audio();
         audioEl.setAttribute('playsinline', '');
-        audioEl.play().catch(() => {});
+        // Play a silent source to permanently unlock audio playback
+        audioEl.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        audioEl.play().then(() => { audioEl.pause(); audioEl.src = ''; }).catch(() => {});
         // Request gyro/motion permissions synchronously in click handler (iOS requires user gesture)
         initGyro();
         loadStations();
@@ -182,6 +186,14 @@
         }
     }
 
+    // --- Mute ---
+    muteBtn.addEventListener('click', () => {
+        muted = !muted;
+        if (audioEl) audioEl.muted = muted;
+        muteBtn.textContent = muted ? '🔇' : '🔊';
+        muteBtn.classList.toggle('muted', muted);
+    });
+
     // --- Lock ---
     lockBtn.addEventListener('click', () => {
         locked = !locked;
@@ -294,6 +306,8 @@
         audioEl.onerror = () => {
             stationNameEl.textContent = station.name + ' (stream unavailable)';
         };
+
+        audioEl.muted = muted;
 
         if (isHLS && Hls.isSupported()) {
             hls = new Hls();
