@@ -21,6 +21,8 @@
     let allStationMarkers = [];
     let radiusCircle = null;
     let connectionLines = [];
+    let headingCone = null;
+    let currentHeading = 0;
     let locked = false;
     let muted = false;
 
@@ -208,7 +210,10 @@
         let heading = e.webkitCompassHeading ?? (360 - (e.alpha || 0));
         if (heading < 0) heading += 360;
 
+        currentHeading = heading;
         headingDisplay.textContent = `${Math.round(heading)}°`;
+
+        if (mapVisible) updateHeadingCone();
 
         if (locked || closestStations.length === 0) return;
 
@@ -426,10 +431,54 @@
             stationMarkers.push(marker);
         });
 
+        // Heading cone
+        updateHeadingCone();
+
         // Zoom to fit radius
         if (radiusCircle) {
             map.fitBounds(radiusCircle.getBounds().pad(0.1));
         }
+    }
+
+    function updateHeadingCone() {
+        if (!map || userLat === null) return;
+        if (headingCone) map.removeLayer(headingCone);
+
+        // Draw a cone showing the current segment (60 degrees wide)
+        var segStart = currentSegment * SEGMENT_WIDTH;
+        var segEnd = segStart + SEGMENT_WIDTH;
+        // Also draw a thin line for exact heading
+
+        // Cone radius scales to map — use distance to furthest station or fallback
+        var coneDist = 0;
+        if (closestStations.length > 0) {
+            closestStations.forEach((s) => {
+                var d = haversine(userLat, userLon, s.lat, s.lon);
+                if (d > coneDist) coneDist = d;
+            });
+        }
+        if (coneDist === 0) coneDist = 20; // 20km fallback
+
+        // Build cone polygon points
+        var points = [[userLat, userLon]];
+        var steps = 20;
+        for (var i = 0; i <= steps; i++) {
+            var angle = segStart + (segEnd - segStart) * (i / steps);
+            var rad = (angle - 90) * Math.PI / 180; // -90 so 0° is north
+            // Approximate: 1 degree lat ~= 111km, 1 degree lon ~= 111km * cos(lat)
+            var dLat = (coneDist / 111) * Math.cos(rad);
+            var dLon = (coneDist / (111 * Math.cos(userLat * Math.PI / 180))) * Math.sin(rad);
+            points.push([userLat + dLat, userLon + dLon]);
+        }
+        points.push([userLat, userLon]);
+
+        headingCone = L.polygon(points, {
+            color: '#ff4444',
+            fillColor: '#ff4444',
+            fillOpacity: 0.1,
+            weight: 1,
+            opacity: 0.4
+        }).addTo(map);
     }
 
 })();
