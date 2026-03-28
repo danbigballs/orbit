@@ -19,6 +19,8 @@
     let userMarker = null;
     let stationMarkers = [];
     let allStationMarkers = [];
+    let radiusCircle = null;
+    let connectionLines = [];
     let locked = false;
     let muted = false;
 
@@ -376,18 +378,46 @@
             radius: 8, fillColor: '#4285f4', fillOpacity: 1, color: '#fff', weight: 2
         }).addTo(map).bindPopup('You');
 
-        // Active 6 station markers (on top)
+        // Radius circle to furthest active station
+        if (radiusCircle) map.removeLayer(radiusCircle);
+        connectionLines.forEach((l) => map.removeLayer(l));
+        connectionLines = [];
+
+        if (closestStations.length > 0) {
+            const distances = closestStations.map((s) => haversine(userLat, userLon, s.lat, s.lon));
+            const maxDist = Math.max(...distances);
+            radiusCircle = L.circle([userLat, userLon], {
+                radius: maxDist * 1000,
+                color: '#4285f4',
+                fillColor: '#4285f4',
+                fillOpacity: 0.05,
+                weight: 1,
+                dashArray: '6 4'
+            }).addTo(map);
+        }
+
+        // Active 6 station markers + connection lines
         stationMarkers.forEach((m) => map.removeLayer(m));
         stationMarkers = [];
         closestStations.forEach((s, i) => {
             const isActive = i === currentSegment;
+
+            // Line from user to station
+            const line = L.polyline([[userLat, userLon], [s.lat, s.lon]], {
+                color: isActive ? '#ff4444' : '#ffaa00',
+                weight: isActive ? 2 : 1,
+                opacity: isActive ? 0.8 : 0.3
+            }).addTo(map);
+            connectionLines.push(line);
+
+            const dist = haversine(userLat, userLon, s.lat, s.lon);
             const marker = L.circleMarker([s.lat, s.lon], {
                 radius: isActive ? 10 : 6,
                 fillColor: isActive ? '#ff4444' : '#ffaa00',
                 fillOpacity: 0.9,
                 color: '#fff',
                 weight: 1
-            }).addTo(map).bindPopup(`${i + 1}. ${s.name}`);
+            }).addTo(map).bindPopup(`${i + 1}. ${s.name} (${dist.toFixed(1)} km)`);
             marker.on('click', () => {
                 currentSegment = i;
                 tuneToSegment(i);
@@ -395,6 +425,11 @@
             });
             stationMarkers.push(marker);
         });
+
+        // Zoom to fit radius
+        if (radiusCircle) {
+            map.fitBounds(radiusCircle.getBounds().pad(0.1));
+        }
     }
 
 })();
