@@ -23,6 +23,7 @@
     let connectionLines = [];
     let headingCone = null;
     let currentHeading = 0;
+    let listVisible = false;
     let locked = false;
     let muted = false;
 
@@ -45,6 +46,11 @@
     const mapContainer = document.getElementById('map-container');
     const debugEl = document.getElementById('debug');
     const muteBtn = document.getElementById('mute-btn');
+    const listBtn = document.getElementById('list-btn');
+    const listContainer = document.getElementById('list-container');
+    const listClose = document.getElementById('list-close');
+    const listCount = document.getElementById('list-count');
+    const stationListEl = document.getElementById('station-list');
 
     // --- Init ---
     startBtn.addEventListener('click', start);
@@ -480,6 +486,53 @@
             weight: 1,
             opacity: 0.4
         }).addTo(map);
+    }
+
+    // --- Station List ---
+    listBtn.addEventListener('click', toggleList);
+    listClose.addEventListener('click', toggleList);
+
+    function toggleList() {
+        listVisible = !listVisible;
+        listContainer.style.display = listVisible ? 'block' : 'none';
+        if (listVisible) renderList();
+    }
+
+    function renderList() {
+        if (userLat === null || stations.length === 0) {
+            stationListEl.innerHTML = '<li><span class="st-name">Waiting for GPS...</span></li>';
+            return;
+        }
+
+        const sorted = stations
+            .map((s, i) => ({ station: s, index: i, dist: haversine(userLat, userLon, s.lat, s.lon) }))
+            .sort((a, b) => a.dist - b.dist);
+
+        listCount.textContent = `${sorted.length} stations`;
+
+        stationListEl.innerHTML = sorted.map((item) => {
+            const isPlaying = closestStations.length > 0 &&
+                currentSegment >= 0 &&
+                closestStations[currentSegment] &&
+                closestStations[currentSegment].name === item.station.name;
+            const distStr = item.dist < 1
+                ? `${(item.dist * 1000).toFixed(0)} m`
+                : `${item.dist.toFixed(1)} km`;
+            return `<li class="${isPlaying ? 'now-playing' : ''}" data-index="${item.index}">
+                <span class="st-name">${isPlaying ? '>> ' : ''}${item.station.name}</span>
+                <span class="st-dist">${distStr}</span>
+            </li>`;
+        }).join('');
+
+        stationListEl.querySelectorAll('li').forEach((li) => {
+            li.addEventListener('click', () => {
+                const idx = parseInt(li.dataset.index);
+                const station = stations[idx];
+                playStation(station);
+                stationNameEl.textContent = station.name;
+                renderList();
+            });
+        });
     }
 
 })();

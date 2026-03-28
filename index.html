@@ -121,6 +121,56 @@
             font-size: 10px;
             color: #444;
         }
+
+        #list-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 500;
+            background: #111;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #list-container .list-header {
+            position: sticky;
+            top: 0;
+            background: #111;
+            padding: 16px;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+            z-index: 1;
+        }
+        #list-container .list-header button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #station-list {
+            list-style: none;
+            padding: 0;
+        }
+        #station-list li {
+            padding: 14px 16px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        #station-list li:active { background: #222; }
+        #station-list li .st-name { font-size: 16px; }
+        #station-list li .st-dist { font-size: 13px; color: #666; }
+        #station-list li.now-playing { color: #ff4444; }
+        #station-list li.now-playing .st-dist { color: #ff444488; }
+        #list-btn { left: 80px; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -141,11 +191,19 @@
         </div>
         <div id="debug"></div>
         <button id="shake-btn" class="bottom-btn" title="Next 6 stations">⟳</button>
+        <button id="list-btn" class="bottom-btn" title="Station list">☰</button>
         <button id="lock-btn" class="bottom-btn" title="Lock tuning">🔓</button>
         <button id="mute-btn" class="bottom-btn" title="Mute">🔊</button>
         <button id="map-btn" class="bottom-btn" title="Toggle map">🗺</button>
         <div id="map-container">
             <div id="map"></div>
+        </div>
+        <div id="list-container">
+            <div class="list-header">
+                <span id="list-count"></span>
+                <button id="list-close">Close</button>
+            </div>
+            <ul id="station-list"></ul>
         </div>
     </div>
 
