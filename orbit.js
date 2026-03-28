@@ -324,8 +324,7 @@
         } else {
             audioEl.src = url;
             audioEl.play().catch(() => {
-                stationNameEl.textContent = station.name + ' (tap to play)';
-                document.body.addEventListener('click', () => audioEl.play(), { once: true });
+                stationNameEl.textContent = station.name + ' (stream unavailable)';
             });
         }
     }
