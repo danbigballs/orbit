@@ -290,6 +290,7 @@
         const station = closestStations[segment];
         stationNameEl.textContent = station.name;
         updateDial(segment);
+        if (mapVisible) updateMap();
 
         // Haptic
         navigator.vibrate && navigator.vibrate(30);
